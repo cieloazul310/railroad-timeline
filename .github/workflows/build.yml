@@ -1,0 +1,105 @@
+name: Build and Deploy
+
+on:
+  # Runs on pushes targeting the default branch
+  push:
+    branches: ["main"]
+    paths-ignore:
+      - README.md
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+env:
+  DATA_PATH: ./data
+
+jobs:  
+  download:
+    uses: ./.github/workflows/download.yml
+    with:
+      data_path: ./data
+
+  build:
+    name: Download ksj files
+    needs: download
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read config
+        id: read_config
+        uses: pietrobolcato/action-read-yaml@1.1.0
+        with:
+          config: ${{ github.workspace }}/config.yml
+      
+      - name: Download artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: ksj-data
+          path: ${{ env.DATA_PATH }}
+      
+      - name: Setup Pages
+        id: pages
+        uses: actions/configure-pages@v3
+
+      - name: Clone tippecanoe
+        uses: actions/checkout@v4
+        with:
+          repository: felt/tippecanoe
+          path: ./tippecanoe
+          fetch-depth: 0
+      
+      # https://zenn.dev/kabuakantech/articles/c6bb510e631f1f
+      - name: Change owner
+        run: |
+          sudo chown -R runner:docker /usr/local/share/
+
+      - name: Make
+        run: |
+          cd ./tippecanoe
+          make -j
+          make install
+          cd ${{ github.workspace }}
+      
+      - name: Generate
+        env:
+          FULL_PATH: ${{ env.DATA_PATH }}/${{ needs.download.outputs.path_with_type }}/utf8/${{ needs.download.outputs.path }}
+        run: |
+          mkdir ./dist
+          tippecanoe \
+          -o ./dist/${{ steps.read_config.outputs.output || needs.download.outputs.path }}.pmtiles \
+          ${{ steps.read_config.outputs.min_zoom != '' && format('--minimum-zoom={0}', steps.read_config.outputs.min_zoom) || '' }} \
+          ${{ steps.read_config.outputs.max_zoom != '' && format('--maximum-zoom={0}', steps.read_config.outputs.max_zoom) || '-zg' }} \
+          ${{ steps.read_config.outputs.base_zoom != '' && format('--base-zoom={0}', steps.read_config.outputs.base_zoom) || '' }} \
+          -L section:${{ env.FULL_PATH }}_RailroadSection2.geojson \
+          -L station:${{ env.FULL_PATH }}_Station2.geojson
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v2
+        with:
+          path: ./dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    needs: build
+    runs-on: ubuntu-latest
+    name: Deploy
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v2

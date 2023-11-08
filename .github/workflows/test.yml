@@ -1,0 +1,42 @@
+name: Download test
+
+on:
+  # Runs on pushes targeting the default branch
+  push:
+    branches-ignore:
+      - main
+    paths-ignore:
+      - README.md
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+env:
+  DATA_PATH: ./data
+
+jobs:  
+  download:
+    uses: ./.github/workflows/download.yml
+    with:
+      data_path: ./data
+  
+  check:
+    name: Download ksj files
+    needs: download
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Download artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: ksj-data
+          path: ${{ env.DATA_PATH }}
+      
+      - name: Check tree
+        run: tree ${{ env.DATA_PATH }}
+    
+      - name: Check outputs
+        run: |
+          echo ${{ needs.download.outputs.id }}

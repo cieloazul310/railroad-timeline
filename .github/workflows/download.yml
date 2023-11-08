@@ -1,0 +1,60 @@
+name: Download
+
+on:
+  workflow_dispatch:
+
+  workflow_call:
+    outputs:
+      id: 
+        value: ${{ jobs.download.outputs.id }}
+      path: 
+        value: ${{ jobs.download.outputs.path }}
+      path_with_type: 
+        value: ${{ jobs.download.outputs.path_with_type }}
+    
+    inputs:
+      data_path:
+        required: true
+        type: string
+
+env:
+  DATA_PATH: ${{ inputs.data_path }}
+
+jobs:  
+  download:
+    name: Download ksj files
+    runs-on: ubuntu-latest
+    outputs:
+      id: ${{ steps.variables.outputs.id }}
+      path: ${{ steps.variables.outputs.path }}
+      path_with_type: ${{ steps.variables.outputs.path_with_type }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read config
+        id: read_config
+        uses: pietrobolcato/action-read-yaml@1.1.0
+        with:
+          config: ${{ github.workspace }}/config.yml
+      
+      - name: Define variables
+        id: variables
+        run: |
+          echo "id=${{ steps.read_config.outputs.id }}" >> $GITHUB_OUTPUT
+          echo "path=${{ steps.read_config.outputs.id }}-${{ steps.read_config.outputs.year }}" >> $GITHUB_OUTPUT
+          echo "path_with_type=${{ steps.read_config.outputs.id }}-${{ steps.read_config.outputs.year }}_${{ steps.read_config.outputs.type }}" >> $GITHUB_OUTPUT
+
+      - name: Download files & unzip
+        env:
+          URL: ${{ format('https://nlftp.mlit.go.jp/ksj/gml/data/{0}/{1}/{2}.zip', steps.variables.outputs.id, steps.variables.outputs.path, steps.variables.outputs.path_with_type ) }}
+        run: |
+          curl -L ${{ env.URL }} -o ${{ env.DATA_PATH }}.zip
+          unzip ${{ env.DATA_PATH }}.zip -d ${{ env.DATA_PATH }}
+
+      - name: Upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: ksj-data
+          path: ${{ env.DATA_PATH }}
