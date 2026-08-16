@@ -76,7 +76,7 @@ jobs:
       
       - name: Generate
         env:
-          FULL_PATH: ${{ env.DATA_PATH }}/${{ needs.download.outputs.path_with_type }}/utf8/${{ needs.download.outputs.path }}
+          FULL_PATH: ${{ env.DATA_PATH }}/${{ needs.download.outputs.path_with_type }}/UTF-8/${{ needs.download.outputs.path }}
         run: |
           mkdir ./dist
           tippecanoe \
