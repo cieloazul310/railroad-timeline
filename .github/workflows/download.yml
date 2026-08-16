@@ -31,7 +31,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Read config
         id: read_config
@@ -54,7 +54,7 @@ jobs:
           unzip ${{ env.DATA_PATH }}.zip -d ${{ env.DATA_PATH }}
 
       - name: Upload
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v7
         with:
           name: ksj-data
           path: ${{ env.DATA_PATH }}
